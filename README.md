@@ -28,7 +28,9 @@ It learns to play chess by imitating Grandmaster games and Stockfish evaluations
 
 The network processes the board state as an image-like tensor and outputs two distinct predictions.
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   Input (12x8x8 Bitboard)         │  [Convolution + Batch Norm + ReLU]         │  [ Residual Block x 5 ] <--- Deep Feature Extraction         │     ┌───┴────────────────────────┐     ▼                            ▼  [Policy Head]              [Value Head]     │                            │  [Conv 1x1]                 [Conv 1x1]     │                            │  [Fully Connected]          [Fully Connected]     │                            │  [LogSoftmax]               [Tanh]     ▼                            ▼  Move Probabilities         Win Probability  (Shape: 4096)              (Shape: 1, Range: -1 to 1)   `
+```text
+   Input (12x8x8 Bitboard)         │  [Convolution + Batch Norm + ReLU]         │  [ Residual Block x 5 ] <--- Deep Feature Extraction         │     ┌───┴────────────────────────┐     ▼                            ▼  [Policy Head]              [Value Head]     │                            │  [Conv 1x1]                 [Conv 1x1]     │                            │  [Fully Connected]          [Fully Connected]     │                            │  [LogSoftmax]               [Tanh]     ▼                            ▼  Move Probabilities         Win Probability  (Shape: 4096)              (Shape: 1, Range: -1 to 1)
+   ```
 
 ### Loss Function
 
@@ -53,7 +55,9 @@ $$Loss\_{total} = (Loss\_{policy} \\times \\text{NLL}) + (Loss\_{value} \\times 
 
 Convert raw PGN game files into a format the model can understand (Bitboards, Policy Indices, Score Values). This script uses **multiprocessing** to speed up analysis.
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python ai/preprocess.py   `
+```bash
+python ai/preprocess.py
+```
 
 *   _Input:_ data.pgn (PGN file with games)
     
@@ -64,7 +68,9 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 
 Train the Dual-Headed ResNet model. The script automatically saves the best model based on validation loss.
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python ai/train.py   `
+```bash
+python ai/train.py
+```
 
 *   _Configuration:_ You can adjust BATCH\_SIZE, EPOCHS, and LEARNING\_RATE inside the script.
     
@@ -75,12 +81,16 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 
 Run the main game interface to play against the AI. The AI uses a "Mirror Board" to track the game state and masks illegal moves during inference.
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python src/chess/main_window.py   `
+```bash
+python src/chess/main_window.py
+```
 
 📂 Project Structure
 --------------------
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   .  ├── ai/  │   ├── preprocess_alphazero.py # Multiprocessed data generator  │   ├── train.py                # Dual-headed training loop  │   ├── model.py                # PyTorch ResNet Architecture  │   ├── dataset.py              # Custom PyTorch Dataset Loader  │   ├── ai.py                   # Inference wrapper & Board state manager  │   └── ai_player.py            # Move prediction logic  ├── src/  │   └── chess/                  # Game GUI and Logic (PyQt/Custom)  ├── models/                # Directory for trained weights (.pth)  └── README.md   `
+```text
+.  ├── ai/  │   ├── preprocess_alphazero.py # Multiprocessed data generator  │   ├── train.py                # Dual-headed training loop  │   ├── model.py                # PyTorch ResNet Architecture  │   ├── dataset.py              # Custom PyTorch Dataset Loader  │   ├── ai.py                   # Inference wrapper & Board state manager  │   └── ai_player.py            # Move prediction logic  ├── src/  │   └── chess/                  # Game GUI and Logic (PyQt/Custom)  ├── models/                # Directory for trained weights (.pth)  └── README.md
+```
 
 📈 Results
 ----------
