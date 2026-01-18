@@ -29,7 +29,24 @@ It learns to play chess by imitating Grandmaster games and Stockfish evaluations
 The network processes the board state as an image-like tensor and outputs two distinct predictions.
 
 ```text
-   Input (12x8x8 Bitboard)         │  [Convolution + Batch Norm + ReLU]         │  [ Residual Block x 5 ] <--- Deep Feature Extraction         │     ┌───┴────────────────────────┐     ▼                            ▼  [Policy Head]              [Value Head]     │                            │  [Conv 1x1]                 [Conv 1x1]     │                            │  [Fully Connected]          [Fully Connected]     │                            │  [LogSoftmax]               [Tanh]     ▼                            ▼  Move Probabilities         Win Probability  (Shape: 4096)              (Shape: 1, Range: -1 to 1)
+Input (12x8x8 Bitboard)
+       │
+[Convolution + Batch Norm + ReLU]
+       │
+[ Residual Block x 5 ] <--- Deep Feature Extraction
+       │
+   ┌───┴────────────────────────┐
+   ▼                            ▼
+[Policy Head]              [Value Head]
+   │                            │
+[Conv 1x1]                 [Conv 1x1]
+   │                            │
+[Fully Connected]          [Fully Connected]
+   │                            │
+[LogSoftmax]               [Tanh]
+   ▼                            ▼
+Move Probabilities         Win Probability
+(Shape: 4096)              (Shape: 1, Range: -1 to 1)
    ```
 
 ### Loss Function
@@ -89,7 +106,18 @@ python src/chess/main_window.py
 --------------------
 
 ```text
-.  ├── ai/  │   ├── preprocess_alphazero.py # Multiprocessed data generator  │   ├── train.py                # Dual-headed training loop  │   ├── model.py                # PyTorch ResNet Architecture  │   ├── dataset.py              # Custom PyTorch Dataset Loader  │   ├── ai.py                   # Inference wrapper & Board state manager  │   └── ai_player.py            # Move prediction logic  ├── src/  │   └── chess/                  # Game GUI and Logic (PyQt/Custom)  ├── models/                # Directory for trained weights (.pth)  └── README.md
+.
+├── ai/
+│   ├── preprocess_alphazero.py # Multiprocessed data generator
+│   ├── train.py                # Dual-headed training loop
+│   ├── model.py                # PyTorch ResNet Architecture
+│   ├── dataset.py              # Custom PyTorch Dataset Loader
+│   ├── ai.py                   # Inference wrapper & Board state manager
+│   └── ai_player.py            # Move prediction logic
+├── src/
+│   └── chess/                  # Game GUI and Logic (PyQt/Custom)
+├── saved_model/                # Directory for trained weights (.pth)
+└── README.md
 ```
 
 📈 Results
