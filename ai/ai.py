@@ -1,157 +1,130 @@
-import chess.pgn
-import chess.engine
+import torch
 import numpy as np
-import tensorflow as tf
-from keras import models
-import sys
+import chess
+from .model import AlphaZeroNet
 
-from os.path import dirname, abspath 
+class AlphaZeroPlayer:
+    def __init__(self, model_path="models/alphazero_chess.pth", device=None):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device:
+            self.device = device
+            
+        print(f"AI: {self.device} üzerinde başlatılıyor...")
+        
+        # Modeli Yükle
+        self.model = AlphaZeroNet().to(self.device)
+        try:
+            checkpoint = torch.load(model_path, map_location=self.device)
+            self.model.load_state_dict(checkpoint)
+            print(f"AI: Model '{model_path}' başarıyla yüklendi.")
+        except FileNotFoundError:
+            print("HATA: Model dosyası bulunamadı! Rastgele ağırlıklarla çalışıyor.")
+        
+        self.model.eval() # Inference modu (Dropout/BatchNorm'u dondurur)
 
-currentDir = dirname(abspath(__file__))
-parentDir = dirname(currentDir)
-sys.path.append(parentDir)
+    def board_to_tensor(self, board):
+        """Tahtayı modelin anlayacağı 12x8x8 tensöre çevirir."""
+        tensor = np.zeros((12, 8, 8), dtype=np.float32)
+        piece_map = {"P": 0, "N": 1, "B": 2, "R": 3, "Q": 4, "K": 5,
+                     "p": 6, "n": 7, "b": 8, "r": 9, "q": 10, "k": 11}
+        
+        for square, piece in board.piece_map().items():
+            row, col = divmod(square, 8)
+            channel = piece_map[piece.symbol()]
+            tensor[channel, row, col] = 1.0
+            
+        return torch.from_numpy(tensor).unsqueeze(0) # (1, 12, 8, 8) Batch boyutu ekle
+
+    def get_best_move(self, board):
+        """Mevcut tahta için en iyi hamleyi seçer."""
+        
+        # 1. Yasal Hamleleri Al
+        legal_moves = list(board.legal_moves)
+        if not legal_moves:
+            return None # Mat veya Pat durumu
+
+        # 2. Modeli Çalıştır
+        tensor = self.board_to_tensor(board).to(self.device)
+        
+        with torch.no_grad():
+            policy_logits, value = self.model(tensor)
+        
+        # 3. Sonuçları İşle
+        # Logits -> Olasılıklar (Gerekirse exp alabilirsin ama sıralama değişmez)
+        policy_logits = policy_logits.squeeze().cpu().numpy() # (4096,)
+        current_value = value.item() # -1 (Siyah) ile 1 (Beyaz) arası
+        
+        # --- MASKELEME (MASKING) ---
+        # Sadece yasal hamlelerin skorlarına bakacağız.
+        # Modelin "Vezirle şah çek" dediği ama vezirin arada kaldığı durumları eliyoruz.
+        
+        best_move = None
+        best_score = -float('inf')
+        
+        # Debug için olasılıkları görelim
+        move_scores = []
+
+        for move in legal_moves:
+            # Hamleyi index'e çevir (Preprocessing ile aynı mantık!)
+            from_sq = move.from_square
+            to_sq = move.to_square
+            idx = from_sq * 64 + to_sq
+            
+            # Modelin bu index için verdiği puanı al
+            score = policy_logits[idx]
+            
+            move_scores.append((move.uci(), score))
+            
+            if score > best_score:
+                best_score = score
+                best_move = move
+        
+        # Konsola Bilgi Bas (Debug)
+        print(f"AI Değerlendirmesi (Beyaz Gözünden): {current_value:.4f}")
+        # En yüksek puanlı 3 hamleyi göster
+        move_scores.sort(key=lambda x: x[1], reverse=True)
+        print(f"Aday Hamleler: {move_scores[:3]}")
+        print(f"Seçilen Hamle: {best_move.uci()}")
+
+        return best_move
 
 class Computer:
     def __init__(self):
-        self.model = models.load_model("saved_model/model.h5")
-        print("model loaded...")
-        self.xCoordinates = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-        self.yCoordinates = ["1", "2", "3", "4", "5", "6", "7", "8"]
-        fileName = "ai/train_data/data2.pgn"
-
-        file = open(fileName)
-
-        self.game = chess.pgn.read_game(file)
-        self.board = self.game.board()
-
-       
-
-    def pieceToInt(self, piece):
+        # 1. Arka planda resmi bir satranç tahtası tutuyoruz
+        self.mirror_board = chess.Board()
         
-            
-        if piece.type == "Pawn":
-            if piece.color[0] == 'w':
-                return 1
-            else:
-                return -1
-        elif piece.type == "Knight":
-            if piece.color[0] == 'w':
-                return 2
-            else:
-                return -2
-        
-        elif piece.type == "Bishop":
-            if piece.color[0] == 'w':
-                return 3
-            else:
-                return -3
-        
-        elif piece.type == "Rook":
-            if piece.color[0] == 'w':
-                return 4
-            else:
-                return -4
-        
-        elif piece.type == "Queen":
-            if piece.color[0] == 'w':
-                return 5
-            else:
-                return -5
-        
-        elif piece.type == "King":
-            if piece.color[0] == 'w':
-                return 6
-            else:
-                return -6
-        else:
-            return 0
+        # 2. Eğittiğimiz AlphaZero modelini yüklüyoruz
+        self.ai = AlphaZeroPlayer(model_path="saved_model/alphazero_chess.pth")
 
-    
-    def symbolToInt(self, symbol):
-        if symbol == "P":
-            return 1
-        elif symbol == "N":
-            return 2
-        elif symbol == "B":
-            return 3
-        elif symbol == "Q":
-            return 5
-        elif symbol == "K":
-            return 6
-        elif symbol == "R":
-            return 4
-        if symbol == "p":
-            return -1
-        elif symbol == "n":
-            return -2
-        elif symbol == "b":
-            return -3
-        elif symbol == "q":
-            return -5
-        elif symbol == "k":
-            return -6
-        elif symbol == "r":
-            return -4
-
-    def pushMove(self, move):
-        move = chess.Move.from_uci(move)
-        self.board.push(move)
-
-    def position_to_tensor(self):
-        positions = []
-
-        position = [self.symbolToInt(self.board.piece_at(square).symbol()) if self.board.piece_at(square) else 0 for square in chess.SQUARES]
-        positions.append(position)
-
-        positions = np.array(positions)
-        positions = positions.astype("float32")
-        print(self.board)
-
-        return positions
-
-    # Make a prediction with using the model
     def predict_best_move(self):
-        # Choose the highest probability move
-        movesProbabilities = []
-        legal_moves = []
-        for move in self.board.legal_moves:
-            legal_moves.append(move)    
-        for move in legal_moves:
-            self.board.push(move)
-            tensor = self.position_to_tensor()
-            probabilty = self.model.predict(tensor)
-            movesProbabilities.append((move, probabilty))
-            self.board.pop()
+        """
+        AI, kendi içindeki ayna tahtaya bakarak hamle seçer.
+        Dışarıdan parametre almasına gerek yoktur.
+        """
+        # AlphaZeroPlayer'ın beklediği chess.Board objesini veriyoruz
+        best_move = self.ai.get_best_move(self.mirror_board)
+        return best_move # chess.Move objesi döner
 
-        print("movesProbability : ") 
-        print(movesProbabilities)
-        pro = 0
-        absMove = ""
-        for move in movesProbabilities:
-            if move[1] > pro:
-                pro = move[1][0][0]
-                absMove = move[0]
-        
-        print(absMove)
-        return absMove
+    def pushMove(self, uci_move_string):
+        """
+        Oyunda yapılan hamleleri (hem senin hem AI'ın) buraya işlemeliyiz
+        ki AI tahtanın son halini bilsin.
+        """
+        try:
+            move = chess.Move.from_uci(uci_move_string)
+            if move in self.mirror_board.legal_moves:
+                self.mirror_board.push(move)
+            else:
+                print(f"HATA: AI senkronizasyonu bozuldu! Geçersiz hamle: {uci_move_string}")
+                print("AI Tahtası:\n", self.mirror_board)
+        except Exception as e:
+            print(f"Hamle işlenirken hata: {e}")
 
-"""
-fileName = "ai/train_data/data2.pgn"
-
-file = open(fileName)
-
-game = chess.pgn.read_game(file)
-board = game.board()
-i = 0
-for move in game.mainline_moves():
-    board.push(move)
-    if i == 6:
-        break
-    i += 1
-
-computer = Computer()
-print(board)
-
-tensor = computer.position_to_tensor()
-print(tensor)
-print(computer.predict_best_move())"""
+# --- TEST KODU ---
+if __name__ == "__main__":
+    ai = AlphaZeroPlayer()
+    board = chess.Board() # Başlangıç pozisyonu
+    
+    # AI hamle yapsın
+    move = ai.get_best_move(board)
+    print("Yapılan Hamle:", move)
